@@ -19,6 +19,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
+app.use(express.static("dist"));
 
 let phonebook = [
   {
@@ -37,10 +38,6 @@ let phonebook = [
     id: "4",
   },
 ];
-
-app.get("/", (request, response) => {
-  response.send("<h1>Hello World!</h1>");
-});
 
 app.get("/api/phonebook", (request, response) => {
   response.json(phonebook);
