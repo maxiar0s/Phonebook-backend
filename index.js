@@ -1,108 +1,95 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
+const Person = require("./models/person");
 
-// const requestLogger = (request, response, next) => {
-//   console.log("Method:", request.method);
-//   console.log("Path:  ", request.path);
-//   console.log("Body:  ", request.body);
-//   console.log("---");
-//   next();
-// };
-// const unknownEndpoint = (request, response) => {
-//   response.status(404).send({ error: "unknown endpoint" });
-// };
+let phonebook = [];
 
-// app.use(unknownEndpoint);
-
-// app.use(requestLogger);
-
-app.use(express.json());
-app.use(cors());
 app.use(express.static("dist"));
 
-let phonebook = [
-  {
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-    id: "2",
-  },
-  {
-    name: "Dan Abramov",
-    number: "12-43-234345",
-    id: "3",
-  },
-  {
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-    id: "4",
-  },
-];
+const requestLogger = (request, response, next) => {
+  console.log("Method:", request.method);
+  console.log("Path:  ", request.path);
+  console.log("Body:  ", request.body);
+  console.log("---");
+  next();
+};
+
+app.use(cors());
+app.use(express.json());
+app.use(requestLogger);
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+
+app.get("/", (request, response) => {
+  response.send("<h1>Hello World!</h1>");
+});
 
 app.get("/api/phonebook", (request, response) => {
-  response.json(phonebook);
+  Person.find({}).then((people) => {
+    response.json(people);
+  });
 });
 
 app.get("/api/phonebook/:id", (request, response) => {
-  const id = request.params.id;
-  console.log(id);
-  const entry = phonebook.find((note) => note.id === id);
-  console.log(entry);
-  if (entry) {
-    response.json(entry);
-  } else {
-    response.status(404).end();
-  }
+  Person.findById(request.params.id).then((person) => {
+    response.json(person);
+  });
 });
 
 app.delete("/api/phonebook/:id", (request, response) => {
-  const id = request.params.id;
-  phonebook = phonebook.filter((note) => note.id !== id);
-  response.status(204).end();
+  Person.findByIdAndRemove(request.params.id)
+    .then((result) => {
+      response.status(204).end();
+    })
+    .catch((error) => {
+      console.log(error);
+      response.status(400).send(error);
+    });
 });
-
-const generateId = () => {
-  const maxId =
-    phonebook.length > 0 ? Math.max(...phonebook.map((n) => n.id)) : 0;
-  return maxId + 1;
-};
 
 app.post("/api/phonebook", (request, response) => {
   const body = request.body;
 
-  if (!body.name || !body.number) {
+  if (!body.name === undefined) {
     return response.status(400).json({
       error: "content missing",
     });
   }
 
-  const person = {
+  const person = new Person({
     name: body.name,
     number: body.number,
-    id: generateId().toString(),
-  };
+  });
 
-  phonebook = phonebook.concat(person);
-
-  console.log(phonebook);
-
-  response.json(person);
+  person.save().then((savedPerson) => {
+    response.json(savedPerson);
+  });
 });
 
 app.put("/api/phonebook/:id", (request, response) => {
-  const id = request.params.id;
-  const note = request.body;
-  const newNote = {
-    id: id,
-    name: note.name,
-    number: note.number,
-  };
-  phonebook = phonebook.map((note) => (note.id === id ? newNote : note));
-  console.log(phonebook);
-  response.json(newNote);
+  const { name, number } = request.body;
+
+  Person.findByIdAndUpdate(
+    request.params.id,
+    { name, number },
+    { new: true, runValidators: true, context: "query" }
+  )
+    .then((updatedPerson) => {
+      response.json(updatedPerson);
+    })
+    .catch((error) => {
+      console.log(error);
+      response.status(400).send(error);
+    });
 });
 
-const PORT = process.env.PORT || 3001;
+app.use(unknownEndpoint);
+
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
